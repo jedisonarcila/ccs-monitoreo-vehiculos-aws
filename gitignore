@@ -1,0 +1,38 @@
+# ---- Terraform ----
+# Directorio de trabajo y plugins descargados (incluye el .exe del provider, +100MB)
+**/.terraform/*
+.terraform/
+
+# Estado de Terraform (puede contener datos sensibles: contraseñas, endpoints)
+*.tfstate
+*.tfstate.*
+terraform.tfstate
+terraform.tfstate.backup
+
+# Archivos de crash y planes guardados
+crash.log
+crash.*.log
+*.tfplan
+
+# Variables con datos reales (correo, etc.) — NUNCA subir
+terraform.tfvars
+*.auto.tfvars
+
+# Lock file (opcional: descomenta si NO quieres versionarlo)
+# .terraform.lock.hcl
+
+# ---- Go / Lambdas ----
+# Binarios y zips compilados (se regeneran con build.ps1)
+**/bootstrap
+**/*.zip
+
+# ---- Sistema / editores ----
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# ---- Credenciales (por seguridad, nunca subir) ----
+*.pem
+.env
+credentials
