@@ -1,0 +1,203 @@
+{
+  "info": {
+    "_postman_id": "5856bf6f-a747-4159-84d5-978dd6ec2ccf",
+    "name": "CCS - Ventas (Step Functions)",
+    "description": "Flujo de ventas orquestado con Step Functions. Venta pequena (<=50) se completa sola; venta grande (>50) queda pausada esperando la firma del Manager, que se da con el request de aprobar. El POST de venta grande guarda el ventaId en una variable para usarlo en el aprobar.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_exporter_id": "16049342"
+  },
+  "item": [
+    {
+      "name": "1. Obtener token (Cognito)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "let json; try { json = pm.response.json(); } catch (e) { json = {}; }",
+              "if (json.AuthenticationResult && json.AuthenticationResult.IdToken) {",
+              "  pm.collectionVariables.set('idToken', json.AuthenticationResult.IdToken);",
+              "  pm.test('Token obtenido', function () { pm.expect(json.AuthenticationResult.IdToken).to.be.a('string'); });",
+              "} else { pm.test('Token obtenido', function () { pm.expect.fail('Sin IdToken: ' + pm.response.text()); }); }"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/x-amz-json-1.1"
+          },
+          {
+            "key": "X-Amz-Target",
+            "value": "AWSCognitoIdentityProviderService.InitiateAuth"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"AuthFlow\": \"USER_PASSWORD_AUTH\",\n  \"ClientId\": \"{{cognitoClientId}}\",\n  \"AuthParameters\": { \"USERNAME\": \"{{username}}\", \"PASSWORD\": \"{{password}}\" }\n}"
+        },
+        "url": {
+          "raw": "https://cognito-idp.{{region}}.amazonaws.com/",
+          "protocol": "https",
+          "host": [
+            "cognito-idp",
+            "{{region}}",
+            "amazonaws",
+            "com"
+          ],
+          "path": [
+            ""
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "2. POST venta pequena (<=50, se completa sola)",
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{idToken}}",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"cliente\": \"Transportes ABC\",\n  \"cantidadVehiculos\": 10\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}ventas",
+          "host": [
+            "{{baseUrl}}ventas"
+          ]
+        },
+        "description": "Venta de 10 vehiculos: no requiere firma, la maquina de estados la completa sola. Revisa la tabla ccs-ventas: estado=completada."
+      },
+      "response": []
+    },
+    {
+      "name": "3. POST venta grande (>50, queda pendiente de firma)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "let json; try { json = pm.response.json(); } catch (e) { json = {}; }",
+              "if (json.ventaId) {",
+              "  pm.collectionVariables.set('ventaId', json.ventaId);",
+              "  console.log('ventaId guardado:', json.ventaId);",
+              "}",
+              "pm.test('Requiere firma', function () { pm.expect(json.requiereFirma).to.eql(true); });"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{idToken}}",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"cliente\": \"Flota Nacional S.A.\",\n  \"cantidadVehiculos\": 100\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}ventas",
+          "host": [
+            "{{baseUrl}}ventas"
+          ]
+        },
+        "description": "Venta de 100 vehiculos: requiere firma del Manager. La ejecucion de Step Functions queda PAUSADA. Guarda el ventaId para aprobar."
+      },
+      "response": []
+    },
+    {
+      "name": "4. POST aprobar (firma del Manager, reanuda el flujo)",
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{idToken}}",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "POST",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}ventas/{{ventaId}}/aprobar",
+          "host": [
+            "{{baseUrl}}ventas"
+          ],
+          "path": [
+            "{{ventaId}}",
+            "aprobar"
+          ]
+        },
+        "description": "Firma del Manager: reanuda la ejecucion pausada (SendTaskSuccess). La venta pasa a completada. Usa el ventaId guardado por el request anterior."
+      },
+      "response": []
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "https://mlncf8ja6h.execute-api.us-east-1.amazonaws.com/"
+    },
+    {
+      "key": "region",
+      "value": "us-east-1"
+    },
+    {
+      "key": "cognitoClientId",
+      "value": "2ij92aeedqulq7ri1f7eh6auk0"
+    },
+    {
+      "key": "username",
+      "value": "tester@ccs.local"
+    },
+    {
+      "key": "password",
+      "value": "CcsTest2026!"
+    },
+    {
+      "key": "idToken",
+      "value": ""
+    },
+    {
+      "key": "ventaId",
+      "value": ""
+    }
+  ]
+}
