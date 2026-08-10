@@ -1,0 +1,174 @@
+{
+  "info": {
+    "_postman_id": "a0b400b9-14cf-4b04-bc0f-8c11951760a0",
+    "name": "CCS - Financiero (Portal)",
+    "description": "Prueba del modulo Financiero (facturas) del portal. Usa RDS PostgreSQL con auth IAM, mismo patron que Usuarios. POST crea una factura, GET lista. En produccion el estado de pago lo actualizaria la pasarela Wompi/PayU.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_exporter_id": "16049342"
+  },
+  "item": [
+    {
+      "name": "1. Obtener token (Cognito)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "let json; try { json = pm.response.json(); } catch (e) { json = {}; }",
+              "if (json.AuthenticationResult && json.AuthenticationResult.IdToken) {",
+              "  pm.collectionVariables.set('idToken', json.AuthenticationResult.IdToken);",
+              "  pm.test('Token obtenido', function () { pm.expect(json.AuthenticationResult.IdToken).to.be.a('string'); });",
+              "} else { pm.test('Token obtenido', function () { pm.expect.fail('Sin IdToken: ' + pm.response.text()); }); }"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/x-amz-json-1.1"
+          },
+          {
+            "key": "X-Amz-Target",
+            "value": "AWSCognitoIdentityProviderService.InitiateAuth"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"AuthFlow\": \"USER_PASSWORD_AUTH\",\n  \"ClientId\": \"{{cognitoClientId}}\",\n  \"AuthParameters\": { \"USERNAME\": \"{{username}}\", \"PASSWORD\": \"{{password}}\" }\n}"
+        },
+        "url": {
+          "raw": "https://cognito-idp.{{region}}.amazonaws.com/",
+          "protocol": "https",
+          "host": [
+            "cognito-idp",
+            "{{region}}",
+            "amazonaws",
+            "com"
+          ],
+          "path": [
+            ""
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "2. POST factura (crear)",
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{idToken}}",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"clienteId\": \"cli-001\",\n  \"monto\": 1500000,\n  \"concepto\": \"Plan Plus - mensualidad flota\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}facturas",
+          "host": [
+            "{{baseUrl}}facturas"
+          ]
+        },
+        "description": "Crea una factura en Postgres. Responde 201 con id y estado 'pendiente'."
+      },
+      "response": []
+    },
+    {
+      "name": "3. GET facturas (listar)",
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{idToken}}",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}facturas",
+          "host": [
+            "{{baseUrl}}facturas"
+          ]
+        },
+        "description": "Lista todas las facturas registradas."
+      },
+      "response": []
+    },
+    {
+      "name": "4. GET sin token (debe dar 401)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Devuelve 401 sin token', function () { pm.expect(pm.response.code).to.eql(401); });"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "auth": {
+          "type": "noauth"
+        },
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}facturas",
+          "host": [
+            "{{baseUrl}}facturas"
+          ]
+        },
+        "description": "Sin token -> 401."
+      },
+      "response": []
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "https://mlncf8ja6h.execute-api.us-east-1.amazonaws.com/"
+    },
+    {
+      "key": "region",
+      "value": "us-east-1"
+    },
+    {
+      "key": "cognitoClientId",
+      "value": "2ij92aeedqulq7ri1f7eh6auk0"
+    },
+    {
+      "key": "username",
+      "value": "tester@ccs.local"
+    },
+    {
+      "key": "password",
+      "value": "CcsTest2026!"
+    },
+    {
+      "key": "idToken",
+      "value": ""
+    }
+  ]
+}

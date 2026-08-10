@@ -1,0 +1,202 @@
+{
+  "info": {
+    "_postman_id": "ab8f8109-2440-4d5e-9f64-f8399374e0e1",
+    "name": "CCS - Config Alertas (Portal)",
+    "description": "Pruebas del portal CCS: obtener token de Cognito, y consumir el endpoint Config Alertas (GET/PUT) protegido con JWT en API Gateway.\n\nPASOS:\n1) Edita las variables de la coleccion (boton derecho > Edit > Variables): pon el 'baseUrl' con el output api_endpoint de Terraform, y confirma cognitoClientId, username y password.\n2) Ejecuta '1. Obtener token' -> guarda el IdToken automaticamente.\n3) Ejecuta '2. PUT config' y '3. GET config'.\n4) '4. GET sin token' debe devolver 401 (demuestra que Cognito protege la API).",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_exporter_id": "16049342"
+  },
+  "item": [
+    {
+      "name": "1. Obtener token (Cognito)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "let json;",
+              "try { json = pm.response.json(); } catch (e) { json = {}; }",
+              "if (json.AuthenticationResult && json.AuthenticationResult.IdToken) {",
+              "  pm.collectionVariables.set('idToken', json.AuthenticationResult.IdToken);",
+              "  console.log('IdToken guardado en la variable {{idToken}}');",
+              "  pm.test('Token obtenido', function () { pm.expect(json.AuthenticationResult.IdToken).to.be.a('string'); });",
+              "} else {",
+              "  console.log('No se obtuvo IdToken. Respuesta:', pm.response.text());",
+              "  pm.test('Token obtenido', function () { pm.expect.fail('Sin IdToken: ' + pm.response.text()); });",
+              "}"
+            ],
+            "type": "text/javascript",
+            "packages": {},
+            "requests": {}
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/x-amz-json-1.1"
+          },
+          {
+            "key": "X-Amz-Target",
+            "value": "AWSCognitoIdentityProviderService.InitiateAuth"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"AuthFlow\": \"USER_PASSWORD_AUTH\",\n  \"ClientId\": \"{{cognitoClientId}}\",\n  \"AuthParameters\": {\n    \"USERNAME\": \"{{username}}\",\n    \"PASSWORD\": \"{{password}}\"\n  }\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "https://cognito-idp.{{region}}.amazonaws.com/",
+          "protocol": "https",
+          "host": [
+            "cognito-idp",
+            "{{region}}",
+            "amazonaws",
+            "com"
+          ],
+          "path": [
+            ""
+          ]
+        },
+        "description": "Llama a la API InitiateAuth de Cognito (flujo USER_PASSWORD_AUTH, no requiere firma AWS). El script de Test guarda el IdToken en la variable {{idToken}}."
+      },
+      "response": []
+    },
+    {
+      "name": "2. PUT config (guardar)",
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{idToken}}",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "PUT",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"cliente@correo.com\",\n  \"telefono\": \"+573001234567\",\n  \"alertasHabilitadas\": [\"panico\", \"accidente\", \"temperatura\"]\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}config/{{clienteId}}",
+          "host": [
+            "{{baseUrl}}config"
+          ],
+          "path": [
+            "{{clienteId}}"
+          ]
+        },
+        "description": "Crea/actualiza la configuracion de alertas del cliente {{clienteId}}. Requiere el header Authorization: Bearer {{idToken}}."
+      },
+      "response": []
+    },
+    {
+      "name": "3. GET config (leer)",
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{idToken}}",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}config/{{clienteId}}",
+          "host": [
+            "{{baseUrl}}config"
+          ],
+          "path": [
+            "{{clienteId}}"
+          ]
+        },
+        "description": "Devuelve la configuracion guardada del cliente {{clienteId}}."
+      },
+      "response": []
+    },
+    {
+      "name": "4. GET sin token (debe dar 401)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Devuelve 401 sin token', function () { pm.expect(pm.response.code).to.eql(401); });"
+            ],
+            "type": "text/javascript",
+            "packages": {},
+            "requests": {}
+          }
+        }
+      ],
+      "request": {
+        "auth": {
+          "type": "noauth"
+        },
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}config/{{clienteId}}",
+          "host": [
+            "{{baseUrl}}config"
+          ],
+          "path": [
+            "{{clienteId}}"
+          ]
+        },
+        "description": "Prueba de seguridad: sin el token, API Gateway rechaza la peticion con 401. Demuestra que el autorizador de Cognito funciona."
+      },
+      "response": []
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "https://TU-API-ID.execute-api.us-east-1.amazonaws.com/"
+    },
+    {
+      "key": "region",
+      "value": "us-east-1"
+    },
+    {
+      "key": "cognitoClientId",
+      "value": "2ij92aeedqulq7ri1f7eh6auk0"
+    },
+    {
+      "key": "username",
+      "value": "jhonarcila_test@ccs.local"
+    },
+    {
+      "key": "password",
+      "value": "CcsTest2026!"
+    },
+    {
+      "key": "clienteId",
+      "value": "cli-001"
+    },
+    {
+      "key": "idToken",
+      "value": ""
+    }
+  ]
+}
