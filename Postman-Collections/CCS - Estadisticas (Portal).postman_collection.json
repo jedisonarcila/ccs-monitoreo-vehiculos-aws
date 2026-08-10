@@ -1,0 +1,202 @@
+{
+  "info": {
+    "_postman_id": "f26bdfec-736b-4fdb-8088-49bc5ebc9e7d",
+    "name": "CCS - Estadisticas (Portal)",
+    "description": "Prueba del endpoint Estadisticas del Plan Plus (GET /estadisticas/{camionId}). Reutiliza el token JWT de Cognito. Edita las variables (baseUrl, cognitoClientId, username, password, camionId) antes de correr.\n\nOJO: la tabla ccs-telemetria debe tener puntos. Publica antes 2-3 mensajes MQTT en ccs/{camionId}/telemetria (consola IoT) con timestamps y coordenadas distintos para ver distancia/tiempo reales.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_exporter_id": "16049342"
+  },
+  "item": [
+    {
+      "name": "1. Obtener token (Cognito)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "let json;",
+              "try { json = pm.response.json(); } catch (e) { json = {}; }",
+              "if (json.AuthenticationResult && json.AuthenticationResult.IdToken) {",
+              "  pm.collectionVariables.set('idToken', json.AuthenticationResult.IdToken);",
+              "  console.log('IdToken guardado');",
+              "  pm.test('Token obtenido', function () { pm.expect(json.AuthenticationResult.IdToken).to.be.a('string'); });",
+              "} else {",
+              "  console.log('No se obtuvo IdToken:', pm.response.text());",
+              "  pm.test('Token obtenido', function () { pm.expect.fail('Sin IdToken: ' + pm.response.text()); });",
+              "}"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/x-amz-json-1.1"
+          },
+          {
+            "key": "X-Amz-Target",
+            "value": "AWSCognitoIdentityProviderService.InitiateAuth"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"AuthFlow\": \"USER_PASSWORD_AUTH\",\n  \"ClientId\": \"{{cognitoClientId}}\",\n  \"AuthParameters\": {\n    \"USERNAME\": \"{{username}}\",\n    \"PASSWORD\": \"{{password}}\"\n  }\n}"
+        },
+        "url": {
+          "raw": "https://cognito-idp.{{region}}.amazonaws.com/",
+          "protocol": "https",
+          "host": [
+            "cognito-idp",
+            "{{region}}",
+            "amazonaws",
+            "com"
+          ],
+          "path": [
+            ""
+          ]
+        },
+        "description": "InitiateAuth (USER_PASSWORD_AUTH). Guarda el IdToken en {{idToken}}."
+      },
+      "response": []
+    },
+    {
+      "name": "2. GET estadisticas (todo el historico)",
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{idToken}}",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}estadisticas/{{camionId}}",
+          "host": [
+            "{{baseUrl}}estadisticas"
+          ],
+          "path": [
+            "{{camionId}}"
+          ]
+        },
+        "description": "Devuelve distancia, tiempo en movimiento y velocidades del camion (todo el historico)."
+      },
+      "response": []
+    },
+    {
+      "name": "3. GET estadisticas (por rango de fechas)",
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{idToken}}",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}estadisticas/{{camionId}}?desde={{desde}}&hasta={{hasta}}",
+          "host": [
+            "{{baseUrl}}estadisticas"
+          ],
+          "path": [
+            "{{camionId}}"
+          ],
+          "query": [
+            {
+              "key": "desde",
+              "value": "{{desde}}"
+            },
+            {
+              "key": "hasta",
+              "value": "{{hasta}}"
+            }
+          ]
+        },
+        "description": "Igual que el anterior pero acotado al rango [desde, hasta] (epoch en segundos)."
+      },
+      "response": []
+    },
+    {
+      "name": "4. GET sin token (debe dar 401)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Devuelve 401 sin token', function () { pm.expect(pm.response.code).to.eql(401); });"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "auth": {
+          "type": "noauth"
+        },
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}estadisticas/{{camionId}}",
+          "host": [
+            "{{baseUrl}}estadisticas"
+          ],
+          "path": [
+            "{{camionId}}"
+          ]
+        },
+        "description": "Sin token -> 401. Demuestra que Cognito protege tambien este endpoint."
+      },
+      "response": []
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "https://mlncf8ja6h.execute-api.us-east-1.amazonaws.com/"
+    },
+    {
+      "key": "region",
+      "value": "us-east-1"
+    },
+    {
+      "key": "cognitoClientId",
+      "value": "2ij92aeedqulq7ri1f7eh6auk0"
+    },
+    {
+      "key": "username",
+      "value": "tester@ccs.local"
+    },
+    {
+      "key": "password",
+      "value": "CcsTest2026!"
+    },
+    {
+      "key": "camionId",
+      "value": "TRK-123"
+    },
+    {
+      "key": "desde",
+      "value": "0"
+    },
+    {
+      "key": "hasta",
+      "value": "9999999999999"
+    },
+    {
+      "key": "idToken",
+      "value": ""
+    }
+  ]
+}

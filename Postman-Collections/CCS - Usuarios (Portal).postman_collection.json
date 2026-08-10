@@ -1,0 +1,180 @@
+{
+  "info": {
+    "_postman_id": "1178e369-c573-4103-9804-cce57b321883",
+    "name": "CCS - Usuarios (Portal)",
+    "description": "Prueba del endpoint Usuarios del portal (usa RDS PostgreSQL con auth IAM). POST crea, GET lista. Reutiliza el token JWT de Cognito. Edita las variables (baseUrl, cognitoClientId, username, password) si hace falta.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_exporter_id": "16049342"
+  },
+  "item": [
+    {
+      "name": "1. Obtener token (Cognito)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "let json;",
+              "try { json = pm.response.json(); } catch (e) { json = {}; }",
+              "if (json.AuthenticationResult && json.AuthenticationResult.IdToken) {",
+              "  pm.collectionVariables.set('idToken', json.AuthenticationResult.IdToken);",
+              "  console.log('IdToken guardado');",
+              "  pm.test('Token obtenido', function () { pm.expect(json.AuthenticationResult.IdToken).to.be.a('string'); });",
+              "} else {",
+              "  console.log('No se obtuvo IdToken:', pm.response.text());",
+              "  pm.test('Token obtenido', function () { pm.expect.fail('Sin IdToken: ' + pm.response.text()); });",
+              "}"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/x-amz-json-1.1"
+          },
+          {
+            "key": "X-Amz-Target",
+            "value": "AWSCognitoIdentityProviderService.InitiateAuth"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"AuthFlow\": \"USER_PASSWORD_AUTH\",\n  \"ClientId\": \"{{cognitoClientId}}\",\n  \"AuthParameters\": {\n    \"USERNAME\": \"{{username}}\",\n    \"PASSWORD\": \"{{password}}\"\n  }\n}"
+        },
+        "url": {
+          "raw": "https://cognito-idp.{{region}}.amazonaws.com/",
+          "protocol": "https",
+          "host": [
+            "cognito-idp",
+            "{{region}}",
+            "amazonaws",
+            "com"
+          ],
+          "path": [
+            ""
+          ]
+        },
+        "description": "InitiateAuth (USER_PASSWORD_AUTH). Guarda el IdToken en {{idToken}}."
+      },
+      "response": []
+    },
+    {
+      "name": "2. POST usuario (crear)",
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{idToken}}",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"nombre\": \"Carlos Arcila\",\n  \"email\": \"carlos@ccs.com\",\n  \"rol\": \"Visualizacion\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}usuarios",
+          "host": [
+            "{{baseUrl}}usuarios"
+          ]
+        },
+        "description": "Crea un usuario en la tabla usuarios (Postgres). Responde 201 con el id asignado."
+      },
+      "response": []
+    },
+    {
+      "name": "3. GET usuarios (listar)",
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{idToken}}",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}usuarios",
+          "host": [
+            "{{baseUrl}}usuarios"
+          ]
+        },
+        "description": "Lista todos los usuarios registrados."
+      },
+      "response": []
+    },
+    {
+      "name": "4. GET sin token (debe dar 401)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Devuelve 401 sin token', function () { pm.expect(pm.response.code).to.eql(401); });"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "auth": {
+          "type": "noauth"
+        },
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}usuarios",
+          "host": [
+            "{{baseUrl}}usuarios"
+          ]
+        },
+        "description": "Sin token -> 401. Demuestra que Cognito protege tambien este endpoint."
+      },
+      "response": []
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "https://mlncf8ja6h.execute-api.us-east-1.amazonaws.com/"
+    },
+    {
+      "key": "region",
+      "value": "us-east-1"
+    },
+    {
+      "key": "cognitoClientId",
+      "value": "2ij92aeedqulq7ri1f7eh6auk0"
+    },
+    {
+      "key": "username",
+      "value": "tester@ccs.local"
+    },
+    {
+      "key": "password",
+      "value": "CcsTest2026!"
+    },
+    {
+      "key": "idToken",
+      "value": ""
+    }
+  ]
+}
