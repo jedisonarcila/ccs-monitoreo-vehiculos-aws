@@ -1,0 +1,2 @@
+# terraform.tfvars.example  → cópialo a terraform.tfvars y pon tus valores
+email_emergencias = "tucorreo@dominio.com"

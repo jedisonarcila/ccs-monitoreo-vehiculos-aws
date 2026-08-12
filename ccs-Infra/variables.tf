@@ -216,6 +216,10 @@ variable "telemetria_table_name" {
 variable "email_emergencias" {
   description = "Correo suscrito al topic SNS de emergencias para las pruebas (hay que confirmar la suscripción desde el email)."
   type        = string
+  validation {
+    condition     = can(regex("^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$", var.email_emergencias))
+    error_message = "email_emergencias debe ser un correo válido, p.ej. alertas@ccs.com. No lo dejes vacío."
+  }
 }
 
 variable "kinesis_batch_size" {
